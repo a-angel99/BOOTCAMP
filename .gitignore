@@ -1,0 +1,24 @@
+
+# Archivos de bytecode compilado de Python
+__pycache__/
+*.pyc
+
+# Archivo de datos persistentes (¡No subir datos privados!)
+datos_nomina.pkl
+empleados.pkl
+
+# Carpetas de entornos virtuales (si usas venv, conda, etc.)
+.venv/
+env/
+*.env
+
+
+
+# Archivos específicos del sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Archivos generados por el programa (PDFs y gráficos)
+*.pdf
+*.png
