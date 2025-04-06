@@ -4,7 +4,7 @@ __pycache__/
 *.pyc
 
 # Archivo de datos persistentes (¡No subir datos privados!)
-datos_nomina.pkl
+historial_nomina.pkl
 empleados.pkl
 
 # Carpetas de entornos virtuales (si usas venv, conda, etc.)

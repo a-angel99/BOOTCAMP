@@ -6,10 +6,13 @@ import colorama
 from colorama import init, Fore, Style
 from tabulate import tabulate
 import matplotlib
+import matplotlib.pyplot as plt  # Importar pyplot para los gráficos
 import pickle
 import sys
+
 # Inicializar Colorama
-colorama.init()
+colorama.init(autoreset=True)
+
 # CONSTANTES:
 SMLV = 1423500
 LIMITE_TRANSPORTE = 2 * SMLV
@@ -22,28 +25,37 @@ ARCHIVO_DATOS = "datos_nomina.pkl"
 # ( Se cargan al inicio y se guardan al salir o tras cambios)
 ultimo_id = 0
 lista_empleados = []
-lista_historial_nomina = []
+historial_nomina = {}
 
-#funcion para cargar datos empleados con pickle
-def cargar_datos_empleados ():
+def cargar_datos_empleados():
     global ultimo_id, lista_empleados
-    if os.path.exists("empleados.pkl"):
-        with open("empleados.pkl", "rb") as file:
-            datos = pickle.load(file)
-            lista_empleados = datos["empleados"]
-            ultimo_id = datos["ultimo_id"]
-    else:
+    try:
+        if os.path.exists("empleados.pkl"):
+            with open("empleados.pkl", "rb") as file:
+                datos = pickle.load(file)
+                lista_empleados = datos["empleados"]
+                ultimo_id = datos["ultimo_id"]
+        else:
+            lista_empleados = []
+            ultimo_id = 0
+    except (pickle.PickleError, EOFError, FileNotFoundError) as e:
+        print(Fore.RED + f"Error al cargar empleados.pkl: {e}")
         lista_empleados = []
         ultimo_id = 0
         
  # Función para cargar datos del historial de nómina con pickle
 def cargar_datos_historial():
-    global lista_historial_nomina
-    if os.path.exists("lista_historial_nomina.pkl"):
-        with open("lista_historial_nomina.pkl", "rb") as file:
-            lista_historial_nomina = pickle.load(file)
-    else:
-        lista_historial_nomina = {}
+    global historial_nomina
+    try:
+        if os.path.exists("historial_nomina.pkl"):
+            with open("historial_nomina.pkl", "rb") as file:
+                historial_nomina = pickle.load(file)
+        else:
+            historial_nomina = {}
+    except (pickle.PickleError, EOFError, FileNotFoundError) as e:
+        print(Fore.RED + f"Error al cargar empleados.pkl: {e}")
+        historial_nomina = {}
+    
 
 
         
@@ -55,8 +67,8 @@ def guardar_datos_empleados():
     
 # Función para guardar datos del historial de nómina con pickle
 def guardar_datos_historial():
-    with open("lista_historial_nomina.pkl", "wb") as file:
-        pickle.dump(lista_historial_nomina, file)
+    with open("historial_nomina.pkl", "wb") as file:
+        pickle.dump(historial_nomina, file)
                 
 # Función para generar ID
 def generar_id():
@@ -87,9 +99,9 @@ def leer_datos(campo, tipo="texto"):
 def respuesta_usuario(mensaje):
     while True:
         respuesta = input(mensaje).upper()
-        if respuesta == "SI":
+        if respuesta in ["SI", "SÍ", "S"]:
             return True
-        elif respuesta == "NO":
+        elif respuesta in ["NO", "N"]:
             return False
         else:
             print(Fore.RED + "Error: Ingrese SI o NO.")
@@ -132,7 +144,7 @@ def registrar_empleado():
         print(tabulate(tabla, headers=encabezados, tablefmt="grid"))
         
         # e. ¿Desea registrar otro empleado?
-        if not respuesta_usuario("¿Desea registrar otro empleado?"):
+        if not respuesta_usuario("¿Desea registrar otro empleado? \ SI/NO   "):
             break
     
     # Guardar datos
@@ -241,7 +253,7 @@ def eliminar_empleado():
     print(tabulate(tabla, headers=encabezados, tablefmt="grid"))
     
     # Confirmar eliminación
-    if not respuesta_usuario("¿Está seguro de que desea eliminar este empleado?"):
+    if not respuesta_usuario("¿Está seguro de que desea eliminar este empleado?  SI/NO   "):
         print(Fore.YELLOW + "Eliminación cancelada.") 
         input("Presione Enter para continuar...")
         return
@@ -287,9 +299,9 @@ def calcular_nomina():
     cargar_datos_historial()
     
     # Verificar si ya existe una nómina para ese año/mes
-    if clave_fecha in lista_historial_nomina:
+    if clave_fecha in historial_nomina:
         print(Fore.YELLOW + f"Ya existe una nómina registrada para {clave_fecha}.")
-        if not respuesta_usuario("¿Desea sobrescribir los datos existentes?"):
+        if not respuesta_usuario("¿Desea sobrescribir los datos existentes?  SI/NO   "):
             print(Fore.YELLOW + "Cálculo de nómina cancelado.")
             input("Presione Enter para continuar...")
             return
@@ -328,7 +340,7 @@ def calcular_nomina():
         nomina_mes[empleado["id"]] = nomina_empleado
     
     # Guardar los cálculos en lista_historial_nomina
-    lista_historial_nomina[clave_fecha] = nomina_mes
+    historial_nomina[clave_fecha] = nomina_mes
     
     # Guardar en el archivo
     guardar_datos_historial()
@@ -338,7 +350,6 @@ def calcular_nomina():
     tabla = []
     for id_empleado, datos in nomina_mes.items():
          # Asegurarse de que todos los valores sean números y enteros
-        print(f"DEBUG: datos = {datos}")  # Ver qué se está pasando a la tabla
         tabla.append([
             id_empleado,
             datos["nombre"],
@@ -356,7 +367,7 @@ def calcular_nomina():
 # Función para generar el reporte de listado de empleados
 def generar_reporte_listado_empleados():
     # Verificar si hay datos de nómina
-    if not lista_historial_nomina:
+    if not historial_nomina:
         print(Fore.RED + "No hay datos de nómina registrados.")
         sys.stdout.flush()
         input("Presione Enter para continuar...")
@@ -398,7 +409,7 @@ def generar_reporte_listado_empleados():
                 print(Fore.RED + "Error: Ingrese un mes válido.")
         
         clave_fecha = f"{anio}-{mes:02d}"
-        if clave_fecha not in lista_historial_nomina:
+        if clave_fecha not in historial_nomina:
             print(Fore.RED + f"No hay datos de nómina para {clave_fecha}.")
             sys.stdout.flush()
             input("Presione Enter para continuar...")
@@ -460,7 +471,7 @@ def generar_reporte_listado_empleados():
             return
         
         # Filtrar las claves dentro del rango
-        for clave in sorted(lista_historial_nomina.keys()):
+        for clave in sorted(historial_nomina.keys()):
             anio_mes = int(clave.replace("-", ""))
             if fecha_inicio <= anio_mes <= fecha_fin:
                 claves_a_mostrar.append(clave)
@@ -473,7 +484,7 @@ def generar_reporte_listado_empleados():
     
     elif opcion == "3":
         # Reporte completo
-        claves_a_mostrar = sorted(lista_historial_nomina.keys())
+        claves_a_mostrar = sorted(historial_nomina.keys())
     
     else:
         print(Fore.RED + "Opción no válida.")
@@ -489,7 +500,7 @@ def generar_reporte_listado_empleados():
     
     # Recorrer los meses seleccionados
     for clave in claves_a_mostrar:
-        nomina_mes = lista_historial_nomina[clave]
+        nomina_mes = historial_nomina[clave]
         for id_empleado, datos in nomina_mes.items():
             tabla.append([
                 clave,  # Añadir el mes como primera columna
@@ -506,4 +517,342 @@ def generar_reporte_listado_empleados():
     
     print(Fore.GREEN + "Reporte generado exitosamente.")
     sys.stdout.flush()
+    input("Presione Enter para continuar...")
+
+# Función para generar el reporte de aportes a seguridad social
+def generar_reporte_aportes_seguridad_social():
+    # Verificar si hay datos de nómina
+    if not historial_nomina:
+        print(Fore.RED + "No hay datos de nómina registrados.")
+        sys.stdout.flush()
+        input("Presione Enter para continuar...")
+        return
+    
+    # Mostrar opciones de filtrado
+    print(Fore.CYAN + "\nOpciones de filtrado para el reporte:")
+    opciones = [
+        ["1", "Mes específico"],
+        ["2", "Rango de meses"],
+        ["3", "Reporte completo"]
+    ]
+    print(tabulate(opciones, headers=["Opción", "Descripción"], tablefmt="grid"))
+    opcion = input("Seleccione una opción: ")
+    
+    # Lista de claves (meses) a mostrar
+    claves_a_mostrar = []
+    
+    if opcion == "1":
+        # Mes específico
+        while True:
+            try:
+                anio = int(input("Ingrese el año (por ejemplo, 2025): "))
+                if anio < 2000 or anio > 2100:
+                    print(Fore.RED + "Error: El año debe estar entre 2000 y 2100.")
+                    continue
+                break
+            except ValueError:
+                print(Fore.RED + "Error: Ingrese un año válido.")
+        
+        while True:
+            try:
+                mes = int(input("Ingrese el mes (1-12): "))
+                if mes < 1 or mes > 12:
+                    print(Fore.RED + "Error: El mes debe estar entre 1 y 12.")
+                    continue
+                break
+            except ValueError:
+                print(Fore.RED + "Error: Ingrese un mes válido.")
+        
+        clave_fecha = f"{anio}-{mes:02d}"
+        if clave_fecha not in historial_nomina:
+            print(Fore.RED + f"No hay datos de nómina para {clave_fecha}.")
+            sys.stdout.flush()
+            input("Presione Enter para continuar...")
+            return
+        claves_a_mostrar = [clave_fecha]
+    
+    elif opcion == "2":
+        # Rango de meses
+        print(Fore.CYAN + "\nIngrese el rango de meses (inicio):")
+        while True:
+            try:
+                anio_inicio = int(input("Ingrese el año de inicio (por ejemplo, 2025): "))
+                if anio_inicio < 2000 or anio_inicio > 2100:
+                    print(Fore.RED + "Error: El año debe estar entre 2000 y 2100.")
+                    continue
+                break
+            except ValueError:
+                print(Fore.RED + "Error: Ingrese un año válido.")
+        
+        while True:
+            try:
+                mes_inicio = int(input("Ingrese el mes de inicio (1-12): "))
+                if mes_inicio < 1 or mes_inicio > 12:
+                    print(Fore.RED + "Error: El mes debe estar entre 1 y 12.")
+                    continue
+                break
+            except ValueError:
+                print(Fore.RED + "Error: Ingrese un mes válido.")
+        
+        print(Fore.CYAN + "\nIngrese el rango de meses (fin):")
+        while True:
+            try:
+                anio_fin = int(input("Ingrese el año de fin (por ejemplo, 2025): "))
+                if anio_fin < 2000 or anio_fin > 2100:
+                    print(Fore.RED + "Error: El año debe estar entre 2000 y 2100.")
+                    continue
+                break
+            except ValueError:
+                print(Fore.RED + "Error: Ingrese un año válido.")
+        
+        while True:
+            try:
+                mes_fin = int(input("Ingrese el mes de fin (1-12): "))
+                if mes_fin < 1 or mes_fin > 12:
+                    print(Fore.RED + "Error: El mes debe estar entre 1 y 12.")
+                    continue
+                break
+            except ValueError:
+                print(Fore.RED + "Error: Ingrese un mes válido.")
+        
+        # Convertir las fechas a un formato comparable (entero: AAAAMM)
+        fecha_inicio = int(f"{anio_inicio}{mes_inicio:02d}")
+        fecha_fin = int(f"{anio_fin}{mes_fin:02d}")
+        
+        if fecha_inicio > fecha_fin:
+            print(Fore.RED + "Error: La fecha de inicio no puede ser mayor que la fecha de fin.")
+            sys.stdout.flush()
+            input("Presione Enter para continuar...")
+            return
+        
+        # Filtrar las claves dentro del rango
+        for clave in sorted(historial_nomina.keys()):
+            anio_mes = int(clave.replace("-", ""))
+            if fecha_inicio <= anio_mes <= fecha_fin:
+                claves_a_mostrar.append(clave)
+        
+        if not claves_a_mostrar:
+            print(Fore.RED + f"No hay datos de nómina en el rango {anio_inicio}-{mes_inicio:02d} a {anio_fin}-{mes_fin:02d}.")
+            sys.stdout.flush()
+            input("Presione Enter para continuar...")
+            return
+    
+    elif opcion == "3":
+        # Reporte completo
+        claves_a_mostrar = sorted(historial_nomina.keys())
+    
+    else:
+        print(Fore.RED + "Opción no válida.")
+        sys.stdout.flush()
+        input("Presione Enter para continuar...")
+        return
+    
+    # Generar el reporte
+    print(Fore.CYAN + "\nResumen de Aportes a Seguridad Social:")
+    tabla = []
+    # Añadir los encabezados con la columna "Mes"
+    encabezados = ["Mes", "ID", "Nombre", "Ded. Salud", "Ded. Pensión"]
+    
+    # Recorrer los meses seleccionados
+    for clave in claves_a_mostrar:
+        nomina_mes = historial_nomina[clave]
+        for id_empleado, datos in nomina_mes.items():
+            tabla.append([
+                clave,  # Añadir el mes como primera columna
+                id_empleado,
+                datos["nombre"],
+                int(datos["deduccion_salud"]),
+                int(datos["deduccion_pension"])
+            ])
+    
+    # Mostrar la tabla
+    print(tabulate(tabla, headers=encabezados, tablefmt="grid"))
+    
+    print(Fore.GREEN + "Reporte generado exitosamente.")
+    sys.stdout.flush()
+    input("Presione Enter para continuar...")
+
+# Función para generar el reporte total de nómina del mes
+def generar_reporte_total_nomina_mes():
+    # Verificar si hay datos de nómina
+    if not historial_nomina:
+        print(Fore.RED + "No hay datos de nómina registrados.")
+        sys.stdout.flush()
+        input("Presione Enter para continuar...")
+        return
+    
+    # Pedir el año y mes para el reporte
+    while True:
+        try:
+            anio = int(input("Ingrese el año (por ejemplo, 2025): "))
+            if anio < 2000 or anio > 2100:
+                print(Fore.RED + "Error: El año debe estar entre 2000 y 2100.")
+                continue
+            break
+        except ValueError:
+            print(Fore.RED + "Error: Ingrese un año válido.")
+    
+    while True:
+        try:
+            mes = int(input("Ingrese el mes (1-12): "))
+            if mes < 1 or mes > 12:
+                print(Fore.RED + "Error: El mes debe estar entre 1 y 12.")
+                continue
+            break
+        except ValueError:
+            print(Fore.RED + "Error: Ingrese un mes válido.")
+    
+    # Formatear la clave de año/mes (por ejemplo, "2025-04")
+    clave_fecha = f"{anio}-{mes:02d}"
+    
+    # Verificar si existe una nómina para ese año/mes
+    if clave_fecha not in historial_nomina:
+        print(Fore.RED + f"No hay datos de nómina para {clave_fecha}.")
+        sys.stdout.flush()
+        input("Presione Enter para continuar...")
+        return
+    
+    # Obtener los datos de la nómina para el mes
+    nomina_mes = historial_nomina[clave_fecha]
+    
+    # Generar el reporte
+    print(Fore.CYAN + f"\nReporte Total Nómina del Mes ({clave_fecha}):")
+    tabla = []
+    total_nomina = 0
+    
+    # Recorrer los datos del mes
+    for id_empleado, datos in nomina_mes.items():
+        salario_neto = int(datos["salario_neto"])
+        tabla.append([
+            clave_fecha,  # Fecha
+            id_empleado,  # ID
+            datos["nombre"],  # Nombre
+            salario_neto  # Salario Neto
+        ])
+        total_nomina += salario_neto
+    
+    # Añadir la fila del total
+    tabla.append(["", "", "Total Nómina", total_nomina])
+    
+    # Añadir los encabezados
+    encabezados = ["Fecha", "ID", "Nombre", "Salario Neto"]
+    
+    # Mostrar la tabla
+    print(tabulate(tabla, headers=encabezados, tablefmt="grid"))
+    
+    print(Fore.GREEN + "Reporte generado exitosamente.")
+    sys.stdout.flush()
+    input("Presione Enter para continuar...")
+
+# Función para generar gráficos estadísticos de pagos por mes en un año
+def generar_graficos_estadisticos():
+    # Verificar si hay datos de nómina
+    if not historial_nomina: 
+        print(Fore.RED + "No hay datos de nómina registrados.")
+        sys.stdout.flush()
+        input("Presione Enter para continuar...")
+        return
+
+    # Pedir el año para el reporte
+    while True:
+        try:
+            anio = int(input("Ingrese el año (por ejemplo, 2025): "))
+            if 2000 <= anio <= 2100:
+                break
+            else:
+                print(Fore.RED + "Error: El año debe estar entre 2000 y 2100.")
+        except ValueError:
+            print(Fore.RED + "Error: Ingrese un año válido.")
+
+    # Filtrar los datos para el año seleccionado
+    datos_anio = {}
+    for clave, nomina_mes in historial_nomina.items(): # Iterar sobre claves y valores
+        anio_clave = int(clave.split("-")[0])
+        if anio_clave == anio:
+            mes = int(clave.split("-")[1])
+            total_nomina = sum(datos["salario_neto"] for datos in nomina_mes.values())
+            datos_anio[mes] = total_nomina
+
+    # Verificar si hay datos para el año
+    if not datos_anio:
+        print(Fore.RED + f"No hay datos de nómina para el año {anio}.")
+        sys.stdout.flush()
+        input("Presione Enter para continuar...")
+        return
+
+    # Mostrar opciones de tipo de gráfico
+    print(Fore.CYAN + "\nOpciones de tipo de gráfico:")
+    opciones_grafico = [
+        ["1", "Histograma de Totales Mensuales"], 
+        ["2", "Pastel de Proporción Mensual"], 
+        ["3", "Líneas de Tendencia Mensual"] ]  
+    print(tabulate(opciones_grafico, headers=["Opción", "Tipo de Gráfico"], tablefmt="grid"))
+    opcion_elegida = input("Seleccione una opción: ")
+
+    # Preparar los datos para el gráfico
+    # Ordenar por mes para el gráfico de líneas y etiquetas consistentes
+    meses_ordenados = sorted(datos_anio.keys())
+    totales_ordenados = [datos_anio[mes] for mes in meses_ordenados]
+    # Etiquetas de texto para los ejes/leyendas (ej. "01", "02", ...)
+    etiquetas_meses_str = [f"{mes:02d}" for mes in meses_ordenados]
+
+    # Determinar el tipo de gráfico para el nombre del archivo y título
+    tipo_grafico_str = ""
+    titulo_grafico = f"Año {anio}" # Título base
+
+    fig, ax = plt.subplots(figsize=(10, 6)) 
+
+    if opcion_elegida == "1":
+        tipo_grafico_str = "histograma"
+        titulo_grafico = f"Distribución de Totales de Nómina Mensual - {titulo_grafico}"
+        ax.bar(etiquetas_meses_str, totales_ordenados, edgecolor='black')
+        ax.set_xlabel("Mes")
+        ax.set_ylabel("Total Nómina Pagada")
+        ax.set_title(titulo_grafico)
+      
+
+    elif opcion_elegida == "2":
+        tipo_grafico_str = "pastel"
+        titulo_grafico = f"Proporción de Nómina por Mes - {titulo_grafico}"
+        ax.pie(totales_ordenados, labels=etiquetas_meses_str, autopct='%1.1f%%', startangle=90)
+        ax.set_title(titulo_grafico)
+        ax.axis('equal') # Asegura que el pastel sea circular
+
+    elif opcion_elegida == "3":
+        tipo_grafico_str = "lineas"
+        titulo_grafico = f"Tendencia de Nómina Mensual - {titulo_grafico}"
+        ax.plot(etiquetas_meses_str, totales_ordenados, marker='o', linestyle='-')
+        ax.set_xlabel("Mes")
+        ax.set_ylabel("Total Nómina Pagada")
+        ax.set_title(titulo_grafico)
+        ax.grid(True)
+
+    else:
+        print(Fore.RED + "Opción no válida.")
+        sys.stdout.flush() 
+        input("Presione Enter para continuar...")
+        plt.close(fig) # Cerrar la figura si la opción no es válida
+        return 
+
+    # Ajustar diseño y mostrar el gráfico generado
+    fig.tight_layout()
+    plt.show()
+
+    # Preguntar si desea guardar el gráfico como PDF
+    if respuesta_usuario("¿Desea guardar el gráfico como PDF?  SI/NO  "):
+        # Crear nombre de archivo dinámico
+        nombre_archivo = f"grafico_nomina_{anio}_{tipo_grafico_str}.pdf"
+        try:
+            # Guardar la figura que ya se mostró
+            fig.savefig(nombre_archivo, format='pdf')
+            print(Fore.GREEN + f"Gráfico guardado como {nombre_archivo}.")
+        except Exception as e:
+            print(Fore.RED + f"Error al guardar el PDF: {e}")
+    else:
+        print(Fore.YELLOW + "Gráfico no guardado.")
+
+    # Cerrar explícitamente la figura después de mostrar y/o guardar
+    plt.close(fig)
+
+    sys.stdout.flush() 
     input("Presione Enter para continuar...")
